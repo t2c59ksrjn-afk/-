@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>你是哪种灵魂饮品？</title>
+    <style>
+        /* 雾霾蓝 + 灰白 治愈系配色 */
+        :root {
+            --haze-blue: #7E9AAF; /* 雾霾蓝主色 */
+            --light-bg: #F5F7F9; /* 灰白背景 */
+            --card-bg: #FFFFFF;
+            --border-color: #E2E8F0;
+            --text-main: #334155;
+            --text-sub: #64748B;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--light-bg);
+            margin: 0; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: var(--text-main); user-select: none; -webkit-user-select: none; overflow: hidden;
+        }
+
+        .container {
+            width: 90%; max-width: 380px; height: 90%; max-height: 650px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 24px; padding: 30px 24px;
+            box-shadow: 0 10px 30px rgba(126, 154, 175, 0.08);
+            text-align: center; box-sizing: border-box; 
+            display: flex; flex-direction: column; position: relative;
+        }
+        
+        /* 首页样式 */
+        #start-screen { display: flex; flex-direction: column; height: 100%; justify-content: center; }
+        h1 { font-size: 1.5rem; color: var(--haze-blue); margin-bottom: 12px; letter-spacing: 1px; font-weight: 800; }
+        p.intro { color: var(--text-sub); font-size: 0.9rem; margin-bottom: 40px; line-height: 1.6; }
+        
+        .btn {
+            width: 100%; padding: 16px 0; font-size: 1.05rem; border: none; border-radius: 14px;
+            cursor: pointer; transition: all 0.2s; font-weight: bold; letter-spacing: 1px;
+            background-color: var(--haze-blue); color: white; 
+        }
+        .btn:active { background-color: #6A859B; transform: scale(0.98); }
+
+        /* 答题区 */
+        #quiz-screen { display: none; flex-direction: column; height: 100%; text-align: left; }
+        .progress-bar { width: 100%; height: 4px; background: var(--border-color); border-radius: 2px; margin-bottom: 24px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--haze-blue); width: 0%; transition: width 0.3s; }
+        
+        .question-text { font-size: 1.15rem; font-weight: bold; color: var(--text-main); margin-bottom: 24px; line-height: 1.5; min-height: 60px; }
+        
+        .option {
+            background: var(--card-bg); padding: 16px; border-radius: 12px; margin-bottom: 12px;
+            font-size: 0.95rem; color: var(--text-sub); cursor: pointer;
+            border: 1px solid var(--border-color); transition: all 0.1s; line-height: 1.4;
+        }
+        .option:active { background: var(--light-bg); color: var(--haze-blue); border-color: var(--haze-blue); }
+
+        /* 结果区 */
+        #result-screen { display: none; flex-direction: column; height: 100%; align-items: center; overflow-y: auto; }
+        #result-screen::-webkit-scrollbar { display: none; }
+        
+        .svg-container { width: 120px; height: 120px; margin-top: 5px; margin-bottom: 10px; }
+        .svg-container svg { width: 100%; height: 100%; }
+
+        .result-title { font-size: 1.5rem; font-weight: 800; color: var(--haze-blue); margin-bottom: 20px; letter-spacing: 1px; }
+        
+        .result-card {
+            background: var(--light-bg); border-radius: 14px; padding: 18px; width: 100%; box-sizing: border-box;
+            text-align: left; margin-bottom: 12px; border: 1px solid var(--border-color);
+        }
+        .result-card h3 { margin: 0 0 8px 0; font-size: 0.95rem; color: var(--haze-blue); display: flex; align-items: center;}
+        .result-card p { margin: 0; font-size: 0.9rem; color: var(--text-sub); line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 首页 -->
+        <div id="start-screen">
+            <h1>你是哪种灵魂饮品？</h1>
+            <p class="intro">测测你内心最真实的滋味。<br>（共 30 题，请凭直觉选择）</p>
+            <button class="btn" onclick="startQuiz()">开始测试</button>
+        </div>
+
+        <!-- 答题页 -->
+        <div id="quiz-screen">
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+            <div class="question-text" id="question-text">问题</div>
+            <div id="options-container"></div>
+        </div>
+
+        <!-- 结果页 -->
+        <div id="result-screen">
+            <div class="svg-container" id="res-svg"></div>
+            <div class="result-title" id="res-title"></div>
+            
+            <div class="result-card">
+                <h3>🧠 人格画像</h3>
+                <p id="res-desc"></p>
+            </div>
+            <div class="result-card">
+                <h3>✨ 灵魂建议</h3>
+                <p id="res-advice"></p>
+            </div>
+
+            <button class="btn" style="margin-top: 10px; margin-bottom: 20px;" onclick="location.reload()">再测一次</button>
+        </div>
+    </div>
+
+    <script>
+        // 题库 (30题)
+        const questions = [
+            { q: "周末醒来，你更倾向于？", opts: [{ t: "立刻起床做计划", s: "ice_americano" }, { t: "赖床发呆，享受独处", s: "hot_cocoa" }] },
+            { q: "在人群中，你通常？", opts: [{ t: "到处搭话，活力满满", s: "grape_juice" }, { t: "安静观察，偶尔吐槽", s: "oolong_tea" }] },
+            { q: "遇到压力时，你的第一反应是？", opts: [{ t: "保持绝对冷静，解决问题", s: "ice_americano" }, { t: "情绪上来，需要倾诉", s: "hot_cocoa" }] },
+            { q: "你的穿衣风格更偏向？", opts: [{ t: "极简舒适，套上就能出门", s: "water" }, { t: "有点设计感，追求独特", s: "mint_soda" }] },
+            { q: "朋友向你借钱但你不想借，你会？", opts: [{ t: "直接拒绝，说明原因", s: "ice_black_tea" }, { t: "委婉推脱，怕伤和气", s: "oolong_tea" }] },
+            { q: "看电影时，你更容易？", opts: [{ t: "分析剧情逻辑和镜头", s: "ice_americano" }, { t: "代入角色，哭得稀里哗啦", s: "hot_cocoa" }] },
+            { q: "你更喜欢哪种社交？", opts: [{ t: "一大群人去嗨", s: "grape_juice" }, { t: "两三好友深聊", s: "oolong_tea" }] },
+            { q: "如果生活是一场游戏，你的角色是？", opts: [{ t: "制定规则的GM", s: "ice_americano" }, { t: "到处找BUG的乐子人", s: "mint_soda" }] },
+            { q: "当别人对你提出不合理要求时？", opts: [{ t: "直接怼回去，捍卫边界", s: "mint_soda" }, { t: "默默忍受，事后内耗", s: "water" }] },
+            { q: "你通常怎么打发无聊时间？", opts: [{ t: "漫无目的地刷手机", s: "water" }, { t: "找点新奇的东西研究", s: "mint_soda" }] },
+            { q: "面对未知的未来，你更倾向于？", opts: [{ t: "提前做好Plan B", s: "ice_americano" }, { t: "走一步看一步，随遇而安", s: "water" }] },
+            { q: "如果有人和你观点不合，你会？", opts: [{ t: "摆事实讲道理辩论到底", s: "ice_black_tea" }, { t: "心里觉得对方蠢，但不说话", s: "oolong_tea" }] },
+            { q: "你更看重伴侣的什么特质？", opts: [{ t: "能力和上进心", s: "ice_americano" }, { t: "情绪价值和温柔", s: "hot_cocoa" }] },
+            { q: "你的工作桌面通常是？", opts: [{ t: "整整齐齐，分类明确", s: "ice_americano" }, { t: "乱中有序，只有我知道东西在哪", s: "mint_soda" }] },
+            { q: "哪种天气最让你心动？", opts: [{ t: "大晴天，阳光明媚", s: "grape_juice" }, { t: "阴雨天，躲在窗内", s: "hot_cocoa" }] },
+            { q: "你更在意别人对你的评价吗？", opts: [{ t: "不太在意，我活我的", s: "water" }, { t: "嘴上说不在意，心里想很多", s: "oolong_tea" }] },
+            { q: "参加聚会时，你通常是？", opts: [{ t: "气氛组，绝不冷场", s: "grape_juice" }, { t: "默默干饭，想早点回家", s: "water" }] },
+            { q: "看到一篇很长很深度的文章？", opts: [{ t: "仔细读完，甚至做笔记", s: "oolong_tea" }, { t: "太长不看，直接划走", s: "grape_juice" }] },
+            { q: "你更容易被什么打动？", opts: [{ t: "出色的才华和能力", s: "ice_americano" }, { t: "真诚和纯粹的善意", s: "hot_cocoa" }] },
+            { q: "做决定时，你更依赖？", opts: [{ t: "客观事实和数据", s: "ice_americano" }, { t: "直觉和自己的感受", s: "hot_cocoa" }] },
+            { q: "你的口头禅更可能是？", opts: [{ t: "“随便/都行/无所谓”", s: "water" }, { t: "“这也太离谱了吧”", s: "ice_black_tea" }] },
+            { q: "当你感到疲惫时，你会？", opts: [{ t: "吃顿好的，睡一觉", s: "grape_juice" }, { t: "一个人去散步或发呆", s: "water" }] },
+            { q: "你骨子里其实是个？", opts: [{ t: "极其理智的狠人", s: "ice_americano" }, { t: "非常渴望被爱的软妹/男", s: "hot_cocoa" }] },
+            { q: "对于规则，你的态度是？", opts: [{ t: "既然定了就该遵守", s: "ice_black_tea" }, { t: "规则就是用来打破的", s: "mint_soda" }] },
+            { q: "如果在一个团队里，你更擅长？", opts: [{ t: "推进进度，把控节奏", s: "ice_americano" }, { t: "调和矛盾，安抚大家", s: "oolong_tea" }] },
+            { q: "哪种状态最让你痛苦？", opts: [{ t: "无聊、没有新鲜感", s: "mint_soda" }, { t: "冲突、争吵和冷战", s: "hot_cocoa" }] },
+            { q: "你更向往的生活是？", opts: [{ t: "大起大落，充满戏剧性", s: "mint_soda" }, { t: "平淡如水，安稳度日", s: "water" }] },
+            { q: "你一眼看过去给人的感觉是？", opts: [{ t: "好接近，乐呵呵的", s: "grape_juice" }, { t: "有点高冷，或者有些距离感", s: "ice_americano" }] },
+            { q: "对于心中的秘密，你会？", opts: [{ t: "烂在肚子里谁都不说", s: "oolong_tea" }, { t: "藏不住事，想找人分享", s: "grape_juice" }] },
+            { q: "如果今天就是世界末日，你会？", opts: [{ t: "冷静接受，找个安静的地方", s: "ice_americano" }, { t: "立刻去找喜欢的人拥抱", s: "hot_cocoa" }] }
+        ];
+
+        // 结果配置（全新手绘可爱风 SVG，带有拟人化表情）
+        const results = {
+            ice_americano: { 
+                name: "冰美式", 
+                svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#7E9AAF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M30 35 L70 35 L65 85 C65 90 35 90 35 85 Z" fill="#F5F7F9"/>
+                    <path d="M35 45 L65 45 L62 75 L38 75 Z" fill="#334155" stroke="none" opacity="0.8"/>
+                    <rect x="42" y="50" width="8" height="8" fill="#F5F7F9" stroke="#7E9AAF" rx="2"/>
+                    <rect x="55" y="60" width="6" height="6" fill="#F5F7F9" stroke="#7E9AAF" rx="2"/>
+                    <circle cx="43" cy="65" r="2" fill="#7E9AAF"/><circle cx="57" cy="65" r="2" fill="#7E9AAF"/>
+                    <path d="M46 70 Q50 73 54 70" stroke="#7E9AAF" stroke-width="2"/>
+                    <path d="M50 35 L60 15" stroke="#7E9AAF"/>
+                    <path d="M45 25 L55 18" stroke="#7E9AAF"/>
+                </svg>`,
+                desc: "你是极度理智、追求效率的人。你的世界非黑即白，不需要多余的糖分来粉饰太平。你习惯独立解决问题，能用最快的速度看清事物本质，是人群中那个绝对清醒的存在。",
+                advice: "少一点自我苛责，偶尔允许自己做一个“无用”的人。你的冷酷只是保护色，别让理智成为阻挡你体验温暖的墙。"
+            },
+            oolong_tea: { 
+                name: "乌龙茶", 
+                svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#7E9AAF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M25 50 C25 85 75 85 75 50 Z" fill="#F5F7F9"/>
+                    <path d="M20 50 L80 50" stroke-width="3"/>
+                    <path d="M30 30 C30 20 40 20 40 30" stroke="#B1C4D4" stroke-width="2"/>
+                    <path d="M60 35 C60 25 70 25 70 35" stroke="#B1C4D4" stroke-width="2"/>
+                    <circle cx="40" cy="65" r="2" fill="#7E9AAF"/><circle cx="60" cy="65" r="2" fill="#7E9AAF"/>
+                    <path d="M45 70 Q50 73 55 70" stroke="#7E9AAF" stroke-width="2"/>
+                    <circle cx="35" cy="68" r="3" fill="#FFC2C2" opacity="0.6"/><circle cx="65" cy="68" r="3" fill="#FFC2C2" opacity="0.6"/>
+                </svg>`,
+                desc: "外表平静、温润，内心却有着极深的洞察力与极丰富的情感。你就像一杯需要慢慢品味的乌龙茶，总是能敏锐捕捉到他人的情绪，默默照顾着所有人，是极度共情的高敏人群。",
+                advice: "你的心事往往只留给深夜的自己。请设立明确的社交边界，在共情他人之前，先把自己的杯子倒满。"
+            },
+            grape_juice: { 
+                name: "葡萄汁", 
+                svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#7E9AAF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="40" cy="40" r="8" fill="#F5F7F9"/><circle cx="60" cy="40" r="8" fill="#F5F7F9"/>
+                    <circle cx="50" cy="55" r="8" fill="#F5F7F9"/><circle cx="35" cy="55" r="8" fill="#F5F7F9"/><circle cx="65" cy="55" r="8" fill="#F5F7F9"/>
+                    <circle cx="42" cy="70" r="8" fill="#F5F7F9"/><circle cx="58" cy="70" r="8" fill="#F5F7F9"/>
+                    <path d="M25 85 L75 85" stroke-width="3"/>
+                    <path d="M45 32 Q50 20 60 25" stroke="#B1C4D4" stroke-width="2"/>
+                    <circle cx="45" cy="55" r="1.5" fill="#7E9AAF"/><circle cx="55" cy="55" r="1.5" fill="#7E9AAF"/>
+                    <path d="M48 60 Q50 62 52 60" stroke="#7E9AAF" stroke-width="1.5"/>
+                </svg>`,
+                desc: "你是人群中永远的开心果，甜美、热闹、活力满满。情绪全都写在脸上，真诚且毫无保留。你热爱分享，像葡萄汁一样清爽解腻，有你在的地方，连空气都会变得轻快起来。",
+                advice: "你的热情很珍贵，但别过度消耗。允许自己有能量低落的时刻，不需要时时刻刻都做太阳，你也可以是云。"
+            },
+            water: { 
+                name: "白开水", 
+                svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#7E9AAF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M30 30 L70 30 L65 85 C65 90 35 90 35 85 Z" fill="#FFFFFF"/>
+                    <path d="M33 60 L67 60 L65 85 C65 90 35 90 35 85 Z" fill="#E2E8F0" stroke="none"/>
+                    <path d="M35 60 C45 65 55 55 65 60" stroke="#B1C4D4"/>
+                    <line x1="42" y1="65" x2="46" y2="65" stroke="#7E9AAF" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="54" y1="65" x2="58" y2="65" stroke="#7E9AAF" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M48 70 Q50 70 52 70" stroke="#7E9AAF" stroke-width="2" stroke-linecap="round"/>
+                </svg>`,
+                desc: "极简、佛系、情绪极度稳定。你就像一杯白开水，看起来平平无奇，但却是最不可或缺的存在。你讨厌麻烦和抓马，奉行“随便、都行、无所谓”的人生哲学，内心有自己绝对舒适的保护区。",
+                advice: "虽然随遇而安很好，但偶尔也要主动加点“料”。对于真正渴望的事物，请试着往前迈一步去争取。"
+            },
+            hot_cocoa: { 
+                name: "热可可", 
+                svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#7E9AAF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M25 45 L75 45 L70 85 C70 90 30 90 30 85 Z" fill="#F5F7F9"/>
+                    <path d="M75 55 C85 55 85 70 70 70" stroke="#7E9AAF"/>
+                    <rect x="35" y="55" width="12" height="10" rx="4" fill="#FFFFFF" stroke="#7E9AAF" stroke-width="2"/>
+                    <rect x="55" y="55" width="12" height="10" rx="4" fill="#FFFFFF" stroke="#7E9AAF" stroke-width="2"/>
+                    <circle cx="38" cy="60" r="1.5" fill="#7E9AAF"/><circle cx="44" cy="60" r="1.5" fill="#7E9AAF"/>
+                    <path d="M40 63 Q41 64 42 63" stroke="#7E9AAF" stroke-width="1.5"/>
+                    <circle cx="58" cy="60" r="1.5" fill="#7E9AAF"/><circle cx="64" cy="60" r="1.5" fill="#7E9AAF"/>
+                    <path d="M60 63 Q61 64 62 63" stroke="#7E9AAF" stroke-width="1.5"/>
+                    <path d="M40 30 C40 20 50 20 50 30" stroke="#B1C4D4" stroke-width="2"/>
+                    <path d="M60 35 C60 25 70 25 70 35" stroke="#B1C4D4" stroke-width="2"/>
+                </svg>`,
+                desc: "极其柔软、治愈、心思细腻。你就像冬日里的一杯热可可，总能给别人提供最温暖的安抚。你的共情力是天赋，但这也让你容易陷入内耗，极度渴望被坚定地选择和偏爱。",
+                advice: "你是很好的倾听者，但不要做情绪垃圾桶。在给别人加棉花糖的时候，别忘了自己先喝一口甜的。"
+            },
+            mint_soda: { 
+                name: "薄荷气泡水", 
+                svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#7E9AAF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M30 30 L70 30 L65 85 C65 90 35 90 35 85 Z" fill="#F5F7F9"/>
+                    <circle cx="45" cy="60" r="5" fill="#FFFFFF" stroke="#B1C4D4"/>
+                    <circle cx="55" cy="70" r="6" fill="#FFFFFF" stroke="#B1C4D4"/>
+                    <circle cx="40" cy="75" r="4" fill="#FFFFFF" stroke="#B1C4D4"/>
+                    <circle cx="60" cy="50" r="5" fill="#FFFFFF" stroke="#B1C4D4"/>
+                    <path d="M45 30 Q45 20 55 25 Q60 15 65 25" stroke="#7E9AAF" stroke-width="2"/>
+                    <path d="M50 30 L55 10" stroke="#7E9AAF"/>
+                    <circle cx="45" cy="55" r="1.5" fill="#7E9AAF"/><circle cx="55" cy="55" r="1.5" fill="#7E9AAF"/>
+                    <path d="M48 60 Q50 63 52 60" stroke="#7E9AAF" stroke-width="2"/>
+                </svg>`,
+                desc: "跳脱、刺激、绝不无聊。你是一杯加了薄荷的气泡水，一口下去能直冲天灵盖。你脑子里全是奇思妙想，最讨厌按部就班。你反应极快，偶尔毒舌，是个能把生活玩出花来的有趣灵魂。",
+                advice: "你的灵感很珍贵，试着把一个想法坚持到底。在追求新鲜感的同时，偶尔也要允许自己沉淀下来。"
+            },
+            ice_black_tea: { 
+                name: "冰红茶", 
+                svg: `<svg viewBox="0 0 100 100" fill="none" stroke="#7E9AAF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M30 30 L70 30 L65 85 C65 90 35 90 35 85 Z" fill="#F5F7F9"/>
+                    <path d="M35 50 L65 50 L65 80 C65 85 35 85 35 80 Z" fill="#E2E8F0" stroke="none"/>
+                    <circle cx="50" cy="60" r="10" fill="#FFFFFF" stroke="#7E9AAF"/>
+                    <path d="M50 60 L55 55" stroke="#7E9AAF"/>
+                    <circle cx="42" cy="65" r="1.5" fill="#7E9AAF"/><circle cx="58" cy="65" r="1.5" fill="#7E9AAF"/>
+                    <path d="M46 70 Q50 73 54 70" stroke="#7E9AAF" stroke-width="2"/>
+                    <path d="M50 30 L60 10" stroke="#7E9AAF"/>
+                </svg>`,
+                desc: "直爽、接地气、三观极正。你就像一瓶国民级的冰红茶，有你在的地方就不会冷场。你热心肠，做事干脆利落，偶尔有点小脾气但绝不记仇，是可以两肋插刀的真性情。",
+                advice: "你总是照顾大局，但也要学会拒绝。别把别人的责任扛在自己肩上，做个“自私”一点的人没关系的。"
+            }
+        };
+
+        let currentQ = 0;
+        let scores = { ice_americano: 0, oolong_tea: 0, grape_juice: 0, water: 0, hot_cocoa: 0, mint_soda: 0, ice_black_tea: 0 };
+
+        function startQuiz() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('quiz-screen').style.display = 'flex';
+            currentQ = 0;
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            if (currentQ >= questions.length) {
+                showResult();
+                return;
+            }
+            const q = questions[currentQ];
+            document.getElementById('progress-fill').style.width = `${((currentQ) / questions.length) * 100}%`;
+            
+            document.getElementById('question-text').innerText = q.q;
+            const optsContainer = document.getElementById('options-container');
+            optsContainer.innerHTML = '';
+            
+            q.opts.forEach(opt => {
+                const div = document.createElement('div');
+                div.className = 'option';
+                div.innerText = opt.t;
+                div.onclick = () => {
+                    scores[opt.s] += 1;
+                    currentQ++;
+                    renderQuestion();
+                };
+                optsContainer.appendChild(div);
+            });
+        }
+
+        function showResult() {
+            document.getElementById('quiz-screen').style.display = 'none';
+            document.getElementById('result-screen').style.display = 'flex';
+
+            let maxDrink = '';
+            let maxScore = -1;
+            for (const [key, val] of Object.entries(scores)) {
+                if (val > maxScore) {
+                    maxScore = val;
+                    maxDrink = key;
+                }
+            }
+
+            const res = results[maxDrink];
+            document.getElementById('res-svg').innerHTML = res.svg;
+            document.getElementById('res-title').innerText = "你是一杯 " + res.name;
+            document.getElementById('res-desc').innerText = res.desc;
+            document.getElementById('res-advice').innerText = res.advice;
+        }
+    </script>
+</body>
+</html>
