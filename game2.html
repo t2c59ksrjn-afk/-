@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>30秒专注力极限挑战</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #E8E8E8 0%, #C8D6C1 100%);
+            margin: 0; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #333; overflow: hidden; user-select: none; -webkit-user-select: none;
+        }
+        .container {
+            width: 100%; max-width: 400px; height: 100%; max-height: 650px;
+            display: flex; flex-direction: column; align-items: center; position: relative; padding: 20px; box-sizing: border-box;
+        }
+        #start-screen { text-align: center; width: 90%; max-width: 350px; display: flex; flex-direction: column; align-items: center; }
+        #start-screen h1 { font-size: 1.8rem; color: #4A5D4E; margin-bottom: 10px; }
+        #start-screen p { color: #666; margin-bottom: 20px; line-height: 1.5; font-size: 0.95rem; }
+        .btn {
+            width: 220px; padding: 15px 0; font-size: 1.1rem; border: none; border-radius: 25px;
+            cursor: pointer; margin-bottom: 12px; transition: all 0.2s; font-weight: bold;
+        }
+        .btn-classic { background-color: #6B8E78; color: white; box-shadow: 0 4px 15px rgba(107, 142, 120, 0.4); }
+        .btn-circle { background-color: #4A5D4E; color: white; box-shadow: 0 4px 15px rgba(74, 93, 78, 0.4); }
+        .btn-polygon { background-color: #3b4d3f; color: white; box-shadow: 0 4px 15px rgba(59, 77, 63, 0.5); }
+        .btn-exit { background-color: transparent; color: #888; font-size: 0.9rem; box-shadow: none; margin-top: 5px; }
+        .btn:active { transform: scale(0.95); }
+
+        #game-screen { display: none; width: 100%; height: 100%; flex-direction: column; }
+        .top-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 10px; box-sizing: border-box; }
+        .current-target { font-size: 1.5rem; font-weight: bold; color: #4A5D4E; }
+        .timer-box { font-size: 1.5rem; font-weight: bold; color: #4A5D4E; background: rgba(255, 255, 255, 0.6); padding: 5px 15px; border-radius: 20px; }
+        .timer-warning { color: #e74c3c !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+        #game-board { flex: 1; position: relative; width: 100%; margin: 0 auto; }
+        
+        /* 基础格子样式 */
+        .cell {
+            position: absolute; background-color: rgba(255, 255, 255, 0.95);
+            display: flex; align-items: center; justify-content: center; font-weight: bold; color: #4A5D4E;
+            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.08); transition: background 0.1s, transform 0.1s;
+        }
+        
+        /* 经典方块 */
+        .grid-mode .cell { position: relative; transform: none; width: 17%; height: 15%; font-size: 1.3rem; border-radius: 10px; }
+        .grid-mode { display: flex; flex-wrap: wrap; justify-content: space-between; align-content: space-between; padding: 10px; box-sizing: border-box; }
+        
+        /* 圆环 */
+        .circle-mode .cell { width: 38px; height: 38px; font-size: 1.1rem; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid rgba(107, 142, 120, 0.2); }
+        
+        /* 不规则多边形切分 */
+        .polygon-mode .cell { 
+            width: 42px; height: 42px; font-size: 1.1rem; border-radius: 4px; 
+            /* 使用 transform 居中，但允许 JS 注入旋转角度 */
+        }
+        
+        .cell:active { transform: scale(0.85) translate(-50%, -50%); opacity: 0.8; z-index: 99; }
+        .grid-mode .cell:active { transform: scale(0.9); }
+        .cell.clicked { background-color: transparent; color: transparent; box-shadow: none; border-color: transparent; }
+
+        #result-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(232, 232, 232, 0.95); z-index: 10; flex-direction: column; align-items: center; justify-content: center; border-radius: 20px; }
+        #result-overlay h2 { font-size: 1.8rem; color: #4A5D4E; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="start-screen">
+            <h1>30秒专注力挑战</h1>
+            <p>测试你的视觉专注力和反应速度。<br>请按顺序点击 1 到 30。</p>
+            <button class="btn btn-classic" onclick="startGame('grid')">普通模式（方块）</button>
+            <button class="btn btn-circle" onclick="startGame('circle')">进阶模式（圆环）</button>
+            <button class="btn btn-polygon" onclick="startGame('polygon')">地狱模式（碎片切分）</button>
+            <button class="btn btn-exit" onclick="alert('感谢体验！')">退出</button>
+        </div>
+        <div id="game-screen">
+            <div class="top-bar">
+                <div class="current-target" id="target-display">找: 1</div>
+                <div class="timer-box" id="timer-display">30.0s</div>
+            </div>
+            <div id="game-board"></div>
+            <div id="result-overlay">
+                <h2 id="result-title">挑战成功！</h2>
+                <p id="result-desc" style="margin-bottom: 30px; color:#666; text-align:center; line-height:1.5;"></p>
+                <button class="btn btn-classic" onclick="backToHome()">返回首页</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentNumber = 1; let timeLeft = 30.0; let timerInterval = null; let tickInterval = null; let isPlaying = false; let audioCtx = null;
+
+        function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
+        function playTickSound() {
+            if (!audioCtx || audioCtx.state === 'suspended') return;
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+        }
+        function backToHome() {
+            document.getElementById('result-overlay').style.display = 'none'; document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'flex'; clearInterval(timerInterval); clearInterval(tickInterval);
+        }
+
+        function startGame(mode) {
+            initAudio(); document.getElementById('start-screen').style.display = 'none'; document.getElementById('game-screen').style.display = 'flex'; document.getElementById('result-overlay').style.display = 'none';
+            clearInterval(timerInterval); clearInterval(tickInterval);
+            currentNumber = 1; timeLeft = 30.0; isPlaying = true;
+            const timerDisplay = document.getElementById('timer-display');
+            timerDisplay.innerText = `30.0s`; timerDisplay.classList.remove('timer-warning');
+            document.getElementById('target-display').innerText = `找: 1`;
+
+            const board = document.getElementById('game-board');
+            board.innerHTML = ''; board.className = mode + '-mode';
+
+            let numbers = Array.from({length: 30}, (_, i) => i + 1).sort(() => Math.random() - 0.5);
+
+            if (mode === 'grid') {
+                numbers.forEach(num => {
+                    const cell = document.createElement('div'); cell.className = 'cell'; cell.innerText = num;
+                    cell.onclick = () => handleCellClick(cell, num); board.appendChild(cell);
+                });
+            } else if (mode === 'circle') {
+                const w = board.clientWidth, h = board.clientHeight, cx = w/2, cy = h/2;
+                const maxR = Math.min(w, h) * 0.45;
+                numbers.forEach((num, i) => {
+                    const cell = document.createElement('div'); cell.className = 'cell'; cell.innerText = num;
+                    cell.onclick = () => handleCellClick(cell, num);
+                    let angle, r;
+                    if (i < 10) { angle = (i * 36) * (Math.PI/180); r = maxR * 0.55; } 
+                    else { angle = ((i - 10) * 18 + 9) * (Math.PI/180); r = maxR * 0.95; }
+                    cell.style.left = `${cx + r * Math.cos(angle)}px`; cell.style.top = `${cy + r * Math.sin(angle)}px`;
+                    board.appendChild(cell);
+                });
+            } else {
+                // 地狱碎片切分模式
+                const w = board.clientWidth, h = board.clientHeight, cx = w/2, cy = h/2;
+                const maxR = Math.min(w, h) * 0.42;
+
+                // 为了绝对不重叠，我们采用“极坐标三圈环形分布”并加入随机扰动
+                const rings = [
+                    { count: 5, radius: maxR * 0.35 }, // 内圈 5 个
+                    { count: 10, radius: maxR * 0.7 }, // 中圈 10 个
+                    { count: 15, radius: maxR * 0.98 } // 外圈 15 个
+                ];
+                
+                let index = 0;
+                const shapes = [
+                    'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)', // 菱形
+                    'polygon(0% 0%, 100% 10%, 80% 100%, 10% 80%)', // 不规则四边形
+                    'polygon(50% 0%, 100% 100%, 0% 100%)',         // 三角形
+                    'polygon(20% 0%, 100% 20%, 80% 100%, 0% 80%)',  // 切角四边形
+                    'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)' // 五边形
+                ];
+
+                rings.forEach((ring, ringIndex) => {
+                    const angleStep = (Math.PI * 2) / ring.count;
+                    // 让内外圈交错开，不形成直线
+                    const angleOffset = (ringIndex * angleStep) / 2.5; 
+
+                    for (let i = 0; i < ring.count; i++) {
+                        const num = numbers[index++];
+                        const cell = document.createElement('div'); cell.className = 'cell'; cell.innerText = num;
+                        cell.onclick = () => handleCellClick(cell, num);
+
+                        // 1. 随机切分形状
+                        cell.style.clipPath = shapes[Math.floor(Math.random() * shapes.length)];
+                        
+                        // 2. 随机微小旋转（防止文字完全颠倒，控制在 -35度到35度）
+                        const rotate = (Math.random() - 0.5) * 70;
+                        cell.style.transform = `translate(-50%, -50%) rotate(${rotate}deg)`;
+
+                        // 3. 计算位置：在标准角度的基础上，增加随机偏移
+                        const randomAngleOffset = (Math.random() - 0.5) * (angleStep * 0.5); // 偏移不超过半个身位
+                        const finalAngle = angleOffset + i * angleStep + randomAngleOffset;
+                        
+                        // 半径也稍微随机一点，不要死板地像个圆
+                        const randomRadius = ring.radius + (Math.random() - 0.5) * (maxR * 0.1);
+                        
+                        const x = cx + randomRadius * Math.cos(finalAngle);
+                        const y = cy + randomRadius * Math.sin(finalAngle);
+
+                        cell.style.left = `${x}px`;
+                        cell.style.top = `${y}px`;
+
+                        board.appendChild(cell);
+                    }
+                });
+            }
+            
+            timerInterval = setInterval(() => {
+                timeLeft -= 0.1; if (timeLeft <= 0) { timeLeft = 0; endGame(false); }
+                timerDisplay.innerText = `${timeLeft.toFixed(1)}s`;
+                if (timeLeft <= 10) timerDisplay.classList.add('timer-warning');
+            }, 100);
+            tickInterval = setInterval(() => { if (isPlaying) playTickSound(); }, 1000);
+        }
+
+        function handleCellClick(cell, num) {
+            if (!isPlaying) return;
+            if (num === currentNumber) {
+                cell.classList.add('clicked');
+                cell.style.clipPath = 'none'; // 点掉后恢复形状，配合透明化
+                cell.style.borderRadius = '50%';
+                currentNumber++;
+                if (currentNumber <= 30) document.getElementById('target-display').innerText = `找: ${currentNumber}`;
+                if (currentNumber > 30) endGame(true);
+            }
+        }
+
+        function endGame(isSuccess) {
+            isPlaying = false; clearInterval(timerInterval); clearInterval(tickInterval);
+            const overlay = document.getElementById('result-overlay'); const title = document.getElementById('result-title'); const desc = document.getElementById('result-desc');
+            overlay.style.display = 'flex';
+            if (isSuccess) {
+                const timeUsed = (30.0 - timeLeft).toFixed(1);
+                title.innerText = "太棒了！挑战成功"; title.style.color = "#6B8E78";
+                desc.innerText = `你仅用时 ${timeUsed} 秒完成了30个数字！\n你的专注力超过了很多人。`;
+            } else {
+                title.innerText = "时间到！挑战失败"; title.style.color = "#e74c3c";
+                desc.innerText = `你找到了 ${currentNumber - 1} 个数字。\n没关系，放轻松，再试一次吧。`;
+            }
+        }
+    </script>
+</body>
+</html>
